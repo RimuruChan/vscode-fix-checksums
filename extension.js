@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 
-const appDir = path.join(path.dirname(process.execPath), "resources/app/out")
+const appDir = path.dirname(process.argv[1])
 const rootDir = path.join(appDir, '..')
 
 const productFile = path.join(rootDir, 'product.json')

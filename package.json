@@ -43,13 +43,11 @@
       }
     ]
   },
-  "scripts": {
-    "postinstall": "node ./node_modules/vscode/bin/install"
-  },
   "devDependencies": {
-    "@types/node": "^7.0.43",
     "@types/mocha": "^2.2.42",
+    "@types/node": "^7.0.43",
+    "@types/vscode": "^1.94.0",
     "eslint": "^4.11.0",
-    "vscode": "^1.1.6"
+    "vscode-test": "^1.6.1"
   }
 }
