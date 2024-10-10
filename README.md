@@ -74,3 +74,4 @@ any settings or installed extensions.
 ## License
 
 MIT © Jürg Lehni, 2018
+MIT © RimuruChan, 2024
