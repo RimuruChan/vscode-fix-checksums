@@ -6,23 +6,23 @@ file modifications will disappear, such as the display of `[Unsupported]` in the
 title-bar, or the following dialog on start-up:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/lehni/vscode-fix-checksums/master/resources/corrupt.png" alt="Corrupt">
+  <img src="https://raw.githubusercontent.com/RimuruChan/vscode-fix-checksums/master/resources/corrupt.png" alt="Corrupt">
 </p>
 
 ## Installation
 
 Follow the instructions in the
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=lehni.vscode-fix-checksums),
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=RimuruChan.vscode-fix-checksums-next),
 or run the following in the command palette:
 
 ```shell
-ext install lehni.vscode-fix-checksums
+ext install RimuruChan.vscode-fix-checksums-next
 ```
 
 Alternatively, you can run this command in the command line:
 
 ```sh
-code --install-extension lehni.vscode-fix-checksums
+code --install-extension RimuruChan.vscode-fix-checksums-next
 ```
 
 ## Usage
