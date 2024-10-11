@@ -2,6 +2,8 @@ const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const sudo = require('sudo-prompt')
+const tmp = require("tmp")
 
 const appDir = path.dirname(process.argv[1])
 const rootDir = path.join(appDir, '..')
@@ -39,31 +41,38 @@ function apply() {
     const json = JSON.stringify(product, null, '\t')
     try {
       if (!fs.existsSync(origFile)) {
-        fs.renameSync(productFile, origFile)
+        moveFileAdmin(productFile, origFile)
+          .then(() => writeFileAdmin(productFile, json))
+          .catch(error => { throw error })
       }
-      fs.writeFileSync(productFile, json, { encoding: 'utf8' })
+      else writeFileAdmin(productFile, json)
       message = messages.changed('applied')
     } catch (err) {
       console.error(err)
       message = messages.error
     }
   }
-  vscode.window.showInformationMessage(message)
+  if (changed) reloadWindow(message)
+  else vscode.window.showInformationMessage(message)
 }
 
 function restore() {
   let message = messages.unchanged
+  let reload = false;
   try {
     if (fs.existsSync(origFile)) {
-      fs.unlinkSync(productFile)
-      fs.renameSync(origFile, productFile)
+      deleteFileAdmin(productFile)
+        .then(() => moveFileAdmin(origFile, productFile))
+        .catch(error => { throw error })
       message = messages.changed('restored')
+      reload = true;
     }
   } catch (err) {
     console.error(err)
     message = messages.error
   }
-  vscode.window.showInformationMessage(message)
+  if (reload) reloadWindow(message)
+  else vscode.window.showInformationMessage(message)
 }
 
 function computeChecksum(file) {
@@ -82,6 +91,70 @@ function cleanupOrigFiles() {
     .filter(file => /\.orig\./.test(file))
     .filter(file => !file.endsWith(vscode.version))
   for (const file of oldOrigFiles) {
-    fs.unlinkSync(path.join(rootDir, file))
+    deleteFileAdmin(path.join(rootDir, file))
+  }
+}
+
+function writeFileAdmin(filePath, writeString, encoding = "UTF-8", promptName = "File Writer") {
+  console.info("Writing file with administrator privileges ...");
+  return new Promise((resolve, reject) => {
+    tmp.file((err, tmpPath) => {
+      if (err) reject(err)
+      else fs.writeFile(tmpPath, writeString, encoding, err => {
+        if (err) reject(err)
+        else sudo.exec(
+          (process.platform === "win32" ? "copy /y " : "cp -f ") + `"${tmpPath}" "${filePath}"`,
+          { name: promptName },
+          error => {
+            if (error) reject(error)
+            else resolve()
+          })
+      })
+    })
+  })
+}
+
+function deleteFileAdmin(filePath, promptName = "File Deleter") {
+  console.info("Deleting file with administrator privileges ...");
+
+  return new Promise((resolve, reject) => {
+    sudo.exec(
+      (process.platform === "win32" ? "del /f /q " : "rm -f ") + `"${filePath}"`,
+      { name: promptName },
+      error => {
+        if (error) reject(error)
+        else resolve()
+      }
+    )
+  })
+}
+
+function moveFileAdmin(filePath, newPath, promptName = "File Renamer") {
+  console.info("Renaming file with administrator privileges ...");
+  return new Promise((resolve, reject) => {
+    sudo.exec(
+      (process.platform === "win32" ? "move /y " : "mv -f ") + `"${filePath}" "${newPath}"`,
+      { name: promptName },
+      error => {
+        if (error) reject(error)
+        else resolve()
+      }
+    )
+  })
+}
+
+function reloadWindow(message) {
+  if (message === undefined) {
+    console.info("Automatically reloading window for taking effect ...")
+    vscode.commands.executeCommand('workbench.action.reloadWindow');
+  } else {
+    console.info("Reloading window manually is required ...");
+    vscode.window.showInformationMessage(message, {
+      title: "Reload Window"
+    }).then(clicked => {
+      if (clicked) {
+        reloadWindow();
+      }
+    });
   }
 }
