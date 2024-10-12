@@ -7,6 +7,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      sudo-prompt:
+        specifier: ^9.2.1
+        version: 9.2.1
+      tmp:
+        specifier: ^0.2.3
+        version: 0.2.3
     devDependencies:
       '@types/mocha':
         specifier: ^2.2.48
@@ -1197,6 +1204,9 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
+
+  sudo-prompt@9.2.1:
+    resolution: {integrity: sha512-Mu7R0g4ig9TUuGSxJavny5Rv0egCEtpZRNMrZaYS1vxkiIxGiGUwoezU3LazIQ+KE04hTrTfNPgxU5gzi7F5Pw==}
 
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
@@ -2550,6 +2560,8 @@ snapshots:
     optional: true
 
   strip-json-comments@3.1.1: {}
+
+  sudo-prompt@9.2.1: {}
 
   supports-color@5.5.0:
     dependencies:
