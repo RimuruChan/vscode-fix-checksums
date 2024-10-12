@@ -5,8 +5,8 @@ const crypto = require('crypto')
 const sudo = require('sudo-prompt')
 const tmp = require("tmp")
 
-const appDir = path.dirname(process.argv[1])
-const rootDir = path.join(appDir, '..')
+const rootDir = vscode.env.appRoot
+const appDir = path.join(rootDir, 'out')
 
 const productFile = path.join(rootDir, 'product.json')
 const origFile = `${productFile}.orig.${vscode.version}`
@@ -20,14 +20,18 @@ exports.activate = function activate(context) {
 }
 
 const messages = {
+  // A manual restart is required, as reloading will not take effect.
   changed: verb => `Checksums ${verb}. Please restart VSCode to see effect.`,
   unchanged: 'No changes to checksums were necessary.',
   error: `An error occurred during execution.
-Make sure you have write access rights to the VSCode files, see README`
+Make sure you have write access rights to the VSCode files, see README`,
 }
 
-function apply() {
-  const product = require(productFile)
+async function apply() {
+  const product = requireUncached(productFile)
+  if (!product.checksums) {
+    vscode.window.showInformationMessage(messages.unchanged)
+  }
   let changed = false
   let message = messages.unchanged
   for (const [filePath, curChecksum] of Object.entries(product.checksums)) {
@@ -41,39 +45,30 @@ function apply() {
     const json = JSON.stringify(product, null, '\t')
     try {
       if (!fs.existsSync(origFile)) {
-        moveFileAdmin(productFile, origFile)
-          .then(() => writeFileAdmin(productFile, json))
-          .catch(error => { throw error })
+        await moveFile(productFile, origFile)
       }
-      else writeFileAdmin(productFile, json)
+      await writeFile(productFile, json)
       message = messages.changed('applied')
     } catch (err) {
       console.error(err)
       message = messages.error
     }
   }
-  // Manual restart is required.
-  // See https://github.com/RimuruChan/vscode-fix-checksums/pull/5#discussion_r1797303088
   vscode.window.showInformationMessage(message);
 }
 
-function restore() {
+async function restore() {
   let message = messages.unchanged
-  let reload = false;
   try {
     if (fs.existsSync(origFile)) {
-      deleteFileAdmin(productFile)
-        .then(() => moveFileAdmin(origFile, productFile))
-        .catch(error => { throw error })
+      await deleteFile(productFile)
+      await moveFile(origFile, productFile)
       message = messages.changed('restored')
-      reload = true;
     }
   } catch (err) {
     console.error(err)
     message = messages.error
   }
-  // Manual restart is required.
-  // See https://github.com/RimuruChan/vscode-fix-checksums/pull/5#discussion_r1797303088
   vscode.window.showInformationMessage(message);
 }
 
@@ -97,6 +92,18 @@ function cleanupOrigFiles() {
   }
 }
 
+function writeFile(filePath, writeString, encoding = "UTF-8") {
+  return new Promise((resolve, reject) => {
+    try {
+      fs.writeFileSync(filePath, writeString, encoding)
+      resolve()
+    } catch (err) {
+      console.error(err)
+      writeFileAdmin(filePath, writeString, encoding).then(resolve).catch(reject)
+    }
+  })
+}
+
 function writeFileAdmin(filePath, writeString, encoding = "UTF-8", promptName = "File Writer") {
   console.info("Writing file with administrator privileges ...");
   return new Promise((resolve, reject) => {
@@ -116,9 +123,20 @@ function writeFileAdmin(filePath, writeString, encoding = "UTF-8", promptName = 
   })
 }
 
+function deleteFile(filePath) {
+  return new Promise((resolve, reject) => {
+    try {
+      fs.unlinkSync(filePath)
+      resolve()
+    } catch (err) {
+      console.error(err)
+      deleteFileAdmin(filePath).then(resolve).catch(reject)
+    }
+  })
+}
+
 function deleteFileAdmin(filePath, promptName = "File Deleter") {
   console.info("Deleting file with administrator privileges ...");
-
   return new Promise((resolve, reject) => {
     sudo.exec(
       (process.platform === "win32" ? "del /f /q " : "rm -f ") + `"${filePath}"`,
@@ -128,6 +146,18 @@ function deleteFileAdmin(filePath, promptName = "File Deleter") {
         else resolve()
       }
     )
+  })
+}
+
+function moveFile(filePath, newPath) {
+  return new Promise((resolve, reject) => {
+    try {
+      fs.renameSync(filePath, newPath)
+      resolve()
+    } catch (err) {
+      console.error(err)
+      moveFileAdmin(filePath, newPath).then(resolve).catch(reject)
+    }
   })
 }
 
@@ -145,18 +175,7 @@ function moveFileAdmin(filePath, newPath, promptName = "File Renamer") {
   })
 }
 
-function reloadWindow(message) {
-  if (message === undefined) {
-    console.info("Automatically reloading window for taking effect ...")
-    vscode.commands.executeCommand('workbench.action.reloadWindow');
-  } else {
-    console.info("Reloading window manually is required ...");
-    vscode.window.showInformationMessage(message, {
-      title: "Reload Window"
-    }).then(clicked => {
-      if (clicked) {
-        reloadWindow();
-      }
-    });
-  }
+function requireUncached(module) {
+  delete require.cache[require.resolve(module)];
+  return require(module);
 }

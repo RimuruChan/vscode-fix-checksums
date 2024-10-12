@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 1.3.0
+
+- Use `vscode.env.appRoot` to get the app folder path
+- Self-elevation support when write access is denied
+
 ## Version 1.2.2
 
 - Use a more reliable way to get the app folder path

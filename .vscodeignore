@@ -1,3 +1,4 @@
+src/**
 .vscode/**
 .gitignore
 jsconfig.json
