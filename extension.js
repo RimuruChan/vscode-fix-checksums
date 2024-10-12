@@ -52,8 +52,9 @@ function apply() {
       message = messages.error
     }
   }
-  if (changed) reloadWindow(message)
-  else vscode.window.showInformationMessage(message)
+  // Manual restart is required.
+  // See https://github.com/RimuruChan/vscode-fix-checksums/pull/5#discussion_r1797303088
+  vscode.window.showInformationMessage(message);
 }
 
 function restore() {
@@ -71,8 +72,9 @@ function restore() {
     console.error(err)
     message = messages.error
   }
-  if (reload) reloadWindow(message)
-  else vscode.window.showInformationMessage(message)
+  // Manual restart is required.
+  // See https://github.com/RimuruChan/vscode-fix-checksums/pull/5#discussion_r1797303088
+  vscode.window.showInformationMessage(message);
 }
 
 function computeChecksum(file) {
