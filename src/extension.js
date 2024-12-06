@@ -19,7 +19,8 @@ exports.activate = function activate(context) {
   cleanupOrigFiles()
 
   const auto = vscode.workspace.getConfiguration().get("checksums.autoFix")
-  apply(auto)
+  if (auto)
+    apply(auto)
 }
 
 const messages = {
