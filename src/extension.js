@@ -17,6 +17,9 @@ exports.activate = function activate(context) {
     vscode.commands.registerCommand('fixChecksums.restore', restore)
   )
   cleanupOrigFiles()
+
+  const auto = vscode.workspace.getConfiguration().get("checksums.autoFix")
+  apply(auto)
 }
 
 const messages = {
@@ -27,7 +30,7 @@ const messages = {
 Make sure you have write access rights to the VSCode files, see README`,
 }
 
-async function apply() {
+async function apply(hidden) {
   const product = requireUncached(productFile)
   if (!product.checksums) {
     vscode.window.showInformationMessage(messages.unchanged)
@@ -54,7 +57,9 @@ async function apply() {
       message = messages.error
     }
   }
-  vscode.window.showInformationMessage(message);
+  if (hidden !== true) {
+    vscode.window.showInformationMessage(message);
+  }
 }
 
 async function restore() {
