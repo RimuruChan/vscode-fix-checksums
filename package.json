@@ -28,6 +28,9 @@
     "checksum",
     "checksums"
   ],
+  "extensionKind": [
+    "ui"
+  ],
   "categories": [
     "Other"
   ],
