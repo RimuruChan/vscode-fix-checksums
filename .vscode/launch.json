@@ -12,7 +12,8 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}"
-            ]
+            ],
+            "outFiles": ["${workspaceFolder}/src/**/*.js"]
         }
     ]
 }

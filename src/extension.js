@@ -17,6 +17,11 @@ exports.activate = function activate(context) {
     vscode.commands.registerCommand('fixChecksums.restore', restore)
   )
   cleanupOrigFiles()
+
+  const shouldAutoFix = vscode.workspace.getConfiguration().get("checksums.autoFix")
+  if (shouldAutoFix) {
+    apply()
+  }
 }
 
 const messages = {

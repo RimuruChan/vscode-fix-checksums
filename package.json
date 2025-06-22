@@ -34,6 +34,9 @@
   "categories": [
     "Other"
   ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
@@ -44,7 +47,17 @@
         "command": "fixChecksums.restore",
         "title": "Fix Checksums: Restore"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "vscode-fix-checksums",
+      "properties": {
+        "checksums.autoFix": {
+          "type": "boolean",
+          "description": "Fix checksums automatically when VSCode start up",
+          "default": false
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm build",
