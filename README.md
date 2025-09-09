@@ -59,6 +59,18 @@ sudo "/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Electron"
 Once you ave applied the modifications by executing `Fix Checksums: Apply` as
 root, quit VSCode and start it normally without root privileges again.
 
+## Installing on Cursor
+
+1. Download extension in .vsix format by this link
+```
+https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RimuruChan/vsextensions/vscode-fix-checksums-next/latest/vspackage
+```
+
+2. Open Cursor
+3. Open command palette (Cmd + Shift + P)
+4. Select `Extensions: Install from VSIX...`
+5. Choose the downloaded file
+
 ## Disclaimer / A Word of Caution
 
 This extension modifies files that are part of the core of VSCode, so use it at
