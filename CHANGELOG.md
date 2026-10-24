@@ -1,21 +1,5 @@
 # Change Log
 
-## Version 1.4.2
-
-- Restore compatibility with the newer Node.js runtime bundled with VS Code
-
-## Version 1.4.1
-
-- Verify checksum writes before reporting success
-- Preserve the original `product.json` with a copy instead of moving it
-- Show actionable filesystem and privilege errors in an output channel
-- Delay automatic fixes until other startup extensions have finished patching UI files
-
-## Version 1.4.0
-
-- Update build and packaging dependencies
-- Always notify when automatic checksum fixing runs
-
 ## Version 1.3.0
 
 - Use `vscode.env.appRoot` to get the app folder path

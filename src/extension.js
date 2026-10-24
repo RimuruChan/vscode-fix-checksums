@@ -2,16 +2,7 @@ const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const util = require('util')
-
-// sudo-prompt 9.x still uses these helpers, which were removed in Node 24.
-// VS Code 1.143 ships a newer Node runtime, so provide the small compatibility
-// surface before loading sudo-prompt.
-util.isObject ||= value => value !== null && typeof value === 'object'
-util.isFunction ||= value => typeof value === 'function'
-util.isString ||= value => typeof value === 'string'
-
-const sudo = require('sudo-prompt')
+const sudo = require('@expo/sudo-prompt')
 const tmp = require('tmp')
 
 const rootDir = vscode.env.appRoot

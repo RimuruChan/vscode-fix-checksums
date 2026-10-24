@@ -3,7 +3,7 @@
   "displayName": "Fix VSCode Checksums Next",
   "description": "A VSCode extension to adjust checksums after changes to core files",
   "icon": "resources/logo.png",
-  "version": "1.4.2",
+  "version": "1.4.0",
   "license": "MIT",
   "main": "./dist/extension",
   "publisher": "RimuruChan",
@@ -61,14 +61,14 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm build",
-    "esbuild-base": "esbuild ./src/extension.js --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild-base": "esbuild ./src/extension.js --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18",
     "build": "pnpm esbuild-base --minify",
     "package": "pnpm vsce package --no-dependencies",
     "publish": "pnpm vsce publish --no-dependencies"
   },
   "devDependencies": {
     "@types/mocha": "^2.2.48",
-    "@types/node": "^7.10.14",
+    "@types/node": "^18.17.0",
     "@types/vscode": "^1.86.0",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.5.0",
@@ -77,7 +77,7 @@
   },
   "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac",
   "dependencies": {
-    "sudo-prompt": "^9.2.1",
+    "@expo/sudo-prompt": "9.3.2",
     "tmp": "^0.2.3"
   }
 }
