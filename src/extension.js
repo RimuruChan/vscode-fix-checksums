@@ -2,185 +2,190 @@ const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const sudo = require('sudo-prompt')
-const tmp = require("tmp")
+const sudo = require('@expo/sudo-prompt')
+const tmp = require('tmp')
 
 const rootDir = vscode.env.appRoot
 const appDir = path.join(rootDir, 'out')
-
 const productFile = path.join(rootDir, 'product.json')
 const origFile = `${productFile}.orig.${vscode.version}`
 
+let output
+
 exports.activate = function activate(context) {
+  output = vscode.window.createOutputChannel('Fix VSCode Checksums')
   context.subscriptions.push(
+    output,
     vscode.commands.registerCommand('fixChecksums.apply', apply),
     vscode.commands.registerCommand('fixChecksums.restore', restore)
   )
-  cleanupOrigFiles()
 
-  const shouldAutoFix = vscode.workspace.getConfiguration().get("checksums.autoFix")
-  if (shouldAutoFix) {
-    apply()
+  cleanupOrigFiles().catch(logError)
+
+  if (vscode.workspace.getConfiguration().get('checksums.autoFix')) {
+    // Other UI extensions can patch workbench files during startup.
+    setTimeout(() => apply(true), 3000)
   }
 }
 
-const messages = {
-  // A manual restart is required, as reloading will not take effect.
-  changed: verb => `Checksums ${verb}. Please restart VSCode to see effect.`,
-  unchanged: 'No changes to checksums were necessary.',
-  error: `An error occurred during execution.
-Make sure you have write access rights to the VSCode files, see README`,
-}
+async function apply(automatic = false) {
+  try {
+    const product = readJson(productFile)
+    const entries = Object.entries(product.checksums || {})
+    if (entries.length === 0) throw new Error(`No checksums found in ${productFile}`)
 
-async function apply() {
-  const product = requireUncached(productFile)
-  if (!product.checksums) {
-    vscode.window.showInformationMessage(messages.unchanged)
-  }
-  let changed = false
-  let message = messages.unchanged
-  for (const [filePath, curChecksum] of Object.entries(product.checksums)) {
-    const checksum = computeChecksum(path.join(appDir, ...filePath.split('/')))
-    if (checksum !== curChecksum) {
-      product.checksums[filePath] = checksum
-      changed = true
-    }
-  }
-  if (changed) {
-    const json = JSON.stringify(product, null, '\t')
-    try {
-      if (!fs.existsSync(origFile)) {
-        await moveFile(productFile, origFile)
+    let changed = false
+    for (const [filePath, currentChecksum] of entries) {
+      const target = path.join(appDir, ...filePath.split('/'))
+      const checksum = computeChecksum(target)
+      if (checksum !== currentChecksum) {
+        product.checksums[filePath] = checksum
+        changed = true
+        output.appendLine(`Updated: ${filePath}`)
       }
-      await writeFile(productFile, json)
-      message = messages.changed('applied')
-    } catch (err) {
-      console.error(err)
-      message = messages.error
     }
+
+    if (!changed) {
+      if (!automatic) vscode.window.showInformationMessage('No checksum changes were necessary.')
+      return
+    }
+
+    if (!fs.existsSync(origFile)) await copyFile(productFile, origFile)
+    await writeFile(productFile, `${JSON.stringify(product, null, '\t')}\n`)
+
+    // Do not report success unless the privileged write really reached disk.
+    const saved = readJson(productFile)
+    for (const [filePath, checksum] of Object.entries(product.checksums)) {
+      if (saved.checksums?.[filePath] !== checksum) {
+        throw new Error(`Verification failed after writing ${productFile}`)
+      }
+    }
+
+    vscode.window.showInformationMessage('Checksums applied. Fully quit and restart VS Code to see the effect.')
+  } catch (error) {
+    await showError('Could not apply checksums', error)
   }
-  vscode.window.showInformationMessage(message);
 }
 
 async function restore() {
-  let message = messages.unchanged
   try {
-    if (fs.existsSync(origFile)) {
-      await deleteFile(productFile)
-      await moveFile(origFile, productFile)
-      message = messages.changed('restored')
+    if (!fs.existsSync(origFile)) {
+      vscode.window.showInformationMessage('No checksum backup exists for this VS Code version.')
+      return
     }
-  } catch (err) {
-    console.error(err)
-    message = messages.error
+    await copyFile(origFile, productFile)
+    readJson(productFile)
+    vscode.window.showInformationMessage('Original checksums restored. Fully quit and restart VS Code.')
+  } catch (error) {
+    await showError('Could not restore checksums', error)
   }
-  vscode.window.showInformationMessage(message);
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'))
 }
 
 function computeChecksum(file) {
-  var contents = fs.readFileSync(file)
-  return crypto
-    .createHash('sha256')
-    .update(contents)
-    .digest('base64')
-    .replace(/=+$/, '')
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('base64').replace(/=+$/, '')
 }
 
-function cleanupOrigFiles() {
-  // Remove all old backup files that aren't related to the current version
-  // of VSCode anymore.
+async function cleanupOrigFiles() {
   const oldOrigFiles = fs.readdirSync(rootDir)
-    .filter(file => /\.orig\./.test(file))
-    .filter(file => !file.endsWith(vscode.version))
+    .filter(file => file.startsWith('product.json.orig.'))
+    .filter(file => file !== path.basename(origFile))
+
   for (const file of oldOrigFiles) {
-    deleteFileAdmin(path.join(rootDir, file))
+    try {
+      await deleteFile(path.join(rootDir, file))
+    } catch (error) {
+      logError(error)
+    }
   }
 }
 
-function writeFile(filePath, writeString, encoding = "UTF-8") {
-  return new Promise((resolve, reject) => {
-    try {
-      fs.writeFileSync(filePath, writeString, encoding)
-      resolve()
-    } catch (err) {
-      console.error(err)
-      writeFileAdmin(filePath, writeString, encoding).then(resolve).catch(reject)
-    }
-  })
+async function writeFile(filePath, contents, encoding = 'utf8') {
+  try {
+    fs.writeFileSync(filePath, contents, encoding)
+  } catch (error) {
+    if (!isPermissionError(error)) throw error
+    await withTempFile(contents, encoding, tmpPath => runElevated(copyCommand(tmpPath, filePath), 'Fix VSCode Checksums'))
+  }
 }
 
-function writeFileAdmin(filePath, writeString, encoding = "UTF-8", promptName = "File Writer") {
-  console.info("Writing file with administrator privileges ...");
+async function copyFile(source, destination) {
+  try {
+    fs.copyFileSync(source, destination)
+  } catch (error) {
+    if (!isPermissionError(error)) throw error
+    await runElevated(copyCommand(source, destination), 'Fix VSCode Checksums')
+  }
+}
+
+async function deleteFile(filePath) {
+  try {
+    fs.unlinkSync(filePath)
+  } catch (error) {
+    if (error.code === 'ENOENT') return
+    if (!isPermissionError(error)) throw error
+    await runElevated(deleteCommand(filePath), 'Fix VSCode Checksums')
+  }
+}
+
+function withTempFile(contents, encoding, callback) {
   return new Promise((resolve, reject) => {
-    tmp.file((err, tmpPath) => {
-      if (err) reject(err)
-      else fs.writeFile(tmpPath, writeString, encoding, err => {
-        if (err) reject(err)
-        else sudo.exec(
-          (process.platform === "win32" ? "copy /y " : "cp -f ") + `"${tmpPath}" "${filePath}"`,
-          { name: promptName },
-          error => {
-            if (error) reject(error)
-            else resolve()
-          })
+    tmp.file((error, tmpPath, fd, cleanup) => {
+      if (error) return reject(error)
+      fs.writeFile(tmpPath, contents, encoding, async writeError => {
+        if (writeError) {
+          cleanup()
+          return reject(writeError)
+        }
+        try {
+          await callback(tmpPath)
+          resolve()
+        } catch (callbackError) {
+          reject(callbackError)
+        } finally {
+          cleanup()
+        }
       })
     })
   })
 }
 
-function deleteFile(filePath) {
+function runElevated(command, name) {
+  output.appendLine('Requesting administrator privileges...')
   return new Promise((resolve, reject) => {
-    try {
-      fs.unlinkSync(filePath)
-      resolve()
-    } catch (err) {
-      console.error(err)
-      deleteFileAdmin(filePath).then(resolve).catch(reject)
-    }
+    sudo.exec(command, { name }, error => error ? reject(error) : resolve())
   })
 }
 
-function deleteFileAdmin(filePath, promptName = "File Deleter") {
-  console.info("Deleting file with administrator privileges ...");
-  return new Promise((resolve, reject) => {
-    sudo.exec(
-      (process.platform === "win32" ? "del /f /q " : "rm -f ") + `"${filePath}"`,
-      { name: promptName },
-      error => {
-        if (error) reject(error)
-        else resolve()
-      }
-    )
-  })
+function copyCommand(source, destination) {
+  if (process.platform === 'win32') return `copy /y ${quote(source)} ${quote(destination)}`
+  return `cp -f -- ${quote(source)} ${quote(destination)}`
 }
 
-function moveFile(filePath, newPath) {
-  return new Promise((resolve, reject) => {
-    try {
-      fs.renameSync(filePath, newPath)
-      resolve()
-    } catch (err) {
-      console.error(err)
-      moveFileAdmin(filePath, newPath).then(resolve).catch(reject)
-    }
-  })
+function deleteCommand(filePath) {
+  if (process.platform === 'win32') return `del /f /q ${quote(filePath)}`
+  return `rm -f -- ${quote(filePath)}`
 }
 
-function moveFileAdmin(filePath, newPath, promptName = "File Renamer") {
-  console.info("Renaming file with administrator privileges ...");
-  return new Promise((resolve, reject) => {
-    sudo.exec(
-      (process.platform === "win32" ? "move /y " : "mv -f ") + `"${filePath}" "${newPath}"`,
-      { name: promptName },
-      error => {
-        if (error) reject(error)
-        else resolve()
-      }
-    )
-  })
+function quote(value) {
+  if (process.platform === 'win32') return `"${String(value).replace(/"/g, '""')}"`
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`
 }
 
-function requireUncached(module) {
-  delete require.cache[require.resolve(module)];
-  return require(module);
+function isPermissionError(error) {
+  return error && (error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'EROFS')
+}
+
+function logError(error) {
+  output?.appendLine(error?.stack || String(error))
+}
+
+async function showError(prefix, error) {
+  logError(error)
+  const detail = error?.message || String(error)
+  const action = await vscode.window.showErrorMessage(`${prefix}: ${detail}`, 'Show Log')
+  if (action === 'Show Log') output.show(true)
 }
